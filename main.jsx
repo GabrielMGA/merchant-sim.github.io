@@ -1,8 +1,9 @@
 const randInt = (start, end) => Math.floor(Math.random() * (end - start) + start);
 
-const { useState, useMemo } = React;
+const { useState, useEffect, useMemo } = React;
 
 const request = {
+    "order_id": "b54628b74c044c3a9c9ce8f96e189111",
     "amount": 1000,
     "currency": 840,
     "items": [
@@ -31,18 +32,81 @@ const request = {
     "cancel_url": "https://paymentpage-cancel.free.beeceptor.com"
 };
 
+function uuidv4() {
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+  }
+  
+
 const App = () => {
 
+    const [sessionId, setSessionId] = useState('');
+    const [orderId, setOrderId] = useState('');
     const [session, setSession] = useState({
-        "session_id": "d2ade83c-f542-429e-8078-9019f73765f8",
-        "redirection_url": "http://localhost:8080/#/login?session=d2ade83c-f542-429e-8078-9019f73765f8",
+        "session_id": "0da0001e-34d5-4d38-b1e5-89db3c1fc300",
+        "redirection_url": "http://localhost:8080/#/login?session=0da0001e-34d5-4d38-b1e5-89db3c1fc300",
         "expiration_date": "2023-04-01 17:03:50"
     });
 
-    const [response, setResponse] = useState([]);
+    const [response, setResponse] = useState({});
+
+    useEffect(() => {
+        const sessions = uuidv4().replace(/-/g, '');
+        setOrderId(sessions);
+    }, [])
 
     const handleClick = () => {
+        console.log('send request session!....');
+        postData("http://eapiqa.st.com:8090/api/v1/checkout_session", {
+            "order_id": orderId,
+            "amount": 10000,
+            "currency": 840,
+            "items": [
+                {
+                    "description": "Converse Shoes",
+                    "quantity": 2,
+                    "amount": 5000,
+                    "sku": "SG999999",
+                    "type": "SPORTING_GOODS"
+                }
+            ],
+            "billing_address": {
+                "alias_name": "Name",
+                "country": 484,
+                "state": "Puebla",
+                "zip_code": "73310",
+                "address": "Av. siempre viva.",
+                "floor_apartment": "No. 3",
+                "city": "City address"
+            },
+            "customer": {
+                "phone": {
+                    "cc": "001",
+                    "number": "3123334455"
+                },
+                "email": "example@mail.com"
+            },
+            "success_url": "http://127.0.0.1:5500/success.html",
+            "cancel_url": "http://127.0.0.1:5500/cancel.html"
+        })
+            .then(response => {
+                setResponse(response);
+                window.location.replace(response.redirection_url);
+            });
+    };
 
+    const handleSearch = (event) => {
+        setSessionId(event.target.value);
+    };
+
+    const handleSubmit = (event) => {
+        event.preventDefault();
+        // Aquí puedes realizar acciones adicionales con el término de búsqueda
+        setSession({
+            ...session,
+            redirection_url: sessionId
+        })
     };
 
     return (
@@ -51,9 +115,7 @@ const App = () => {
                 <div className="container-fluid py-5">
                     <h1 className="display-5 fw-bold">EL PENTAGONO</h1>
                     <p className="col-md-8 fs-4">
-                        {session.session_id} <br />
                         {session.redirection_url} <br />
-                        {session.expiration_date}
                     </p>
                     <a href={session.redirection_url} className="btn btn-success btn-lg" type="button" onClick={handleClick}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-credit-card" viewBox="0 0 16 16">
@@ -64,12 +126,40 @@ const App = () => {
                     </a>
                 </div>
             </div>
+            <div className="row">
+                <div className="col">
+                    <form onSubmit={handleSubmit}>
+                        <input
+                            className="form-control"
+                            type="text"
+                            value={sessionId}
+                            onChange={handleSearch}
+                            placeholder="Buscar..."
+                        />
+                        <button
+                            type="submit"
+                            className="btn btn-success">
+                            Confirmar
+                        </button>
+                        <button
+                            type="submit"
+                            className="btn btn-primary"
+                            onClick={handleClick}
+                        >
+                            Request session
+                        </button>
+                    </form>
+                </div>
+            </div>
             <div class="row align-items-md-stretch">
                 <div class="col">
                     <div class="h-100 p-5 text-bg-dark rounded-3">
                         <h2>RESPONSE</h2>
                         <p>
-                            {response}
+                            ORDER: {orderId}
+                        </p>
+                        <p>
+                            {JSON.stringify(response)}
                         </p>
                     </div>
                 </div>
@@ -86,7 +176,8 @@ async function postData(url = "", data = {}) {
         method: "POST", // *GET, POST, PUT, DELETE, etc.
         headers: {
             "Content-Type": 'application/json',
-            'Authorization': 'Basic MTpza190ZXN0X3Bhc3N3b3Jk',
+            'Authorization': `Basic ${btoa('1:sk_password')}`,
+            // "Access-Control-Allow-Origin": "*"
         },
         body: JSON.stringify(data), // body data type must match "Content-Type" header
     });
